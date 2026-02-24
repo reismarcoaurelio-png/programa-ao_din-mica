@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Programação Dinâmica - Modelo por Decisão</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body { font-family: Arial; padding:20px; }
+table { border-collapse: collapse; margin-top:15px; }
+td, th { border:1px solid #444; padding:4px; text-align:center; }
+input { width:60px; text-align:center; }
+.erro { background:#ffb3b3; }
+.ok { background:#b3ffb3; }
+.invalido { background:#eee; }
+.estagio { margin-top:30px; border:2px solid #000; padding:15px; }
+button { margin-top:10px; padding:6px 12px; }
+.solucao { margin-top:30px; padding:15px; border:2px solid #000; }
+</style>
+</head>
+
+<body>
+
+<h2>Programação Dinâmica - Modelo por Decisão</h2>
+
+Nome do Aluno:
+<input type="text" id="nomeAluno" style="width:300px"><br><br>
+
+Capacidade:
+<input type="number" id="capacidade" value="10"><br><br>
+
+Itens (peso,valor por linha):
+<br>
+<textarea id="itens" rows="4" cols="40">
+1,20
+2,50
+2,60
+</textarea><br>
+
+<button onclick="gerar()">Gerar Estrutura</button>
+<button onclick="corrigir()">Corrigir</button>
+<button onclick="gerarPDF()">Gerar PDF</button>
+
+<div id="area"></div>
+<div id="solucaoArea"></div>
+<div id="nota" style="font-size:20px;margin-top:20px;"></div>
+
+<script>
+
+let capacidade;
+let pesos=[0];
+let valores=[0];
+let F=[];
+let politica=[];
+let ultimaNota=0;
+
+function gerar(){
+
+    capacidade = parseInt(document.getElementById("capacidade").value);
+
+    pesos=[0];
+    valores=[0];
+
+    let linhas = document.getElementById("itens").value.trim().split("\n");
+
+    linhas.forEach(l=>{
+        let p=l.split(",");
+        pesos.push(parseInt(p[0]));
+        valores.push(parseInt(p[1]));
+    });
+
+    calcularCorreto();
+    construirInterface();
+    construirSolucao();
+}
+
+function calcularCorreto(){
+
+    let n = pesos.length-1;
+    F=[];
+
+    for(let i=0;i<=n;i++){
+        F[i]=[];
+        for(let w=0;w<=capacidade;w++){
+            F[i][w]=0;
+        }
+    }
+
+    for(let i=1;i<=n;i++){
+
+        let maxX = Math.floor(capacidade/pesos[i]);
+
+        for(let w=0;w<=capacidade;w++){
+
+            let melhor = 0;
+
+            for(let k=0;k<=maxX;k++){
+
+                if(w >= pesos[i]*k){
+
+                    let candidato =
+                        valores[i]*k +
+                        F[i-1][w - pesos[i]*k];
+
+                    if(candidato > melhor){
+                        melhor = candidato;
+                    }
+                }
+            }
+
+            F[i][w]=melhor;
+        }
+    }
+
+    calcularPolitica();
+}
+
+function calcularPolitica(){
+
+    let n = pesos.length-1;
+    let w = capacidade;
+    politica = new Array(n+1).fill(0);
+
+    for(let i=n;i>=1;i--){
+
+        let maxX = Math.floor(capacidade/pesos[i]);
+
+        for(let k=0;k<=maxX;k++){
+
+            if(w >= pesos[i]*k){
+
+                if(F[i][w] === valores[i]*k + F[i-1][w - pesos[i]*k]){
+                    politica[i] = k;
+                }
+            }
+        }
+
+        w -= pesos[i]*politica[i];
+    }
+}
+
+function construirInterface(){
+
+    let area=document.getElementById("area");
+    area.innerHTML="";
+
+    for(let i=0;i<pesos.length;i++){
+
+        let div=document.createElement("div");
+        div.className="estagio";
+        div.innerHTML+="<h3>Estágio "+i+"</h3>";
+
+        let tabela="<table>";
+        tabela+="<tr><th>X</th><th>Peso×X</th><th>Valor×X</th>";
+
+        for(let w=0;w<=capacidade;w++){
+            tabela+="<th>"+w+"</th>";
+        }
+
+        tabela+="</tr>";
+
+        let numeroLinhas = (i==0)?1:Math.floor(capacidade/pesos[i])+1;
+
+        for(let k=0;k<numeroLinhas;k++){
+
+            tabela+="<tr>";
+            tabela+="<td>"+k+"</td>";
+
+            if(i==0){
+                tabela+="<td class='invalido'>0</td>";
+                tabela+="<td class='invalido'>0</td>";
+            }else{
+                tabela+="<td><input type='number' id='px_"+i+"_"+k+"'></td>";
+                tabela+="<td><input type='number' id='vx_"+i+"_"+k+"'></td>";
+            }
+
+            for(let w=0;w<=capacidade;w++){
+                tabela+="<td class='invalido'><input type='number' id='e_"+i+"_"+k+"_"+w+"'></td>";
+            }
+
+            tabela+="</tr>";
+        }
+
+        tabela+="</table>";
+        div.innerHTML+=tabela;
+        area.appendChild(div);
+    }
+}
+
+function construirSolucao(){
+
+    let n = pesos.length-1;
+    let div=document.getElementById("solucaoArea");
+
+    let html="<div class='solucao'><h3>Solução do Aluno</h3>";
+
+    for(let i=1;i<=n;i++){
+        html+="X"+i+": <input type='number' id='sol_"+i+"'> ";
+    }
+
+    html+="<br><br>Lucro Total: <input type='number' id='lucroTotal'>";
+    html+="</div>";
+
+    div.innerHTML=html;
+}
+
+function corrigir(){
+
+    let total=0;
+    let acertos=0;
+    let n = pesos.length-1;
+
+    for(let i=0;i<pesos.length;i++){
+
+        let numeroLinhas = (i==0)?1:Math.floor(capacidade/pesos[i])+1;
+
+        for(let k=0;k<numeroLinhas;k++){
+
+            if(i>0){
+
+                let campoPX=document.getElementById("px_"+i+"_"+k);
+                let esperadoPX = pesos[i]*k;
+                total++;
+
+                if(parseInt(campoPX.value)===esperadoPX){
+                    campoPX.classList.add("ok");
+                    campoPX.classList.remove("erro");
+                    acertos++;
+                }else{
+                    campoPX.classList.add("erro");
+                    campoPX.classList.remove("ok");
+                }
+
+                let campoVX=document.getElementById("vx_"+i+"_"+k);
+                let esperadoVX = valores[i]*k;
+                total++;
+
+                if(parseInt(campoVX.value)===esperadoVX){
+                    campoVX.classList.add("ok");
+                    campoVX.classList.remove("erro");
+                    acertos++;
+                }else{
+                    campoVX.classList.add("erro");
+                    campoVX.classList.remove("ok");
+                }
+            }
+
+            for(let w=0;w<=capacidade;w++){
+
+                let campo=document.getElementById("e_"+i+"_"+k+"_"+w);
+                if(!campo) continue;
+
+                total++;
+
+                let esperado;
+
+                if(i==0){
+                    esperado=0;
+                }else{
+
+                    let pesoX = pesos[i]*k;
+
+                    if(w < pesoX){
+                        if(k==0){
+                            esperado=0;
+                        }else{
+                            let campoAcima=document.getElementById("e_"+i+"_"+(k-1)+"_"+w);
+                            esperado=parseInt(campoAcima.value) || 0;
+                        }
+                    }else{
+                        esperado =
+                            valores[i]*k +
+                            F[i-1][w - pesoX];
+                    }
+                }
+
+                if(parseInt(campo.value)===esperado){
+                    campo.classList.add("ok");
+                    campo.classList.remove("erro");
+                    acertos++;
+                }else{
+                    campo.classList.add("erro");
+                    campo.classList.remove("ok");
+                }
+            }
+        }
+    }
+
+    for(let i=1;i<=n;i++){
+        let campo=document.getElementById("sol_"+i);
+        total++;
+        if(parseInt(campo.value)===politica[i]){
+            campo.classList.add("ok");
+            campo.classList.remove("erro");
+            acertos++;
+        }else{
+            campo.classList.add("erro");
+            campo.classList.remove("ok");
+        }
+    }
+
+    let campoLucro=document.getElementById("lucroTotal");
+    total++;
+    if(parseInt(campoLucro.value)===F[n][capacidade]){
+        campoLucro.classList.add("ok");
+        campoLucro.classList.remove("erro");
+        acertos++;
+    }else{
+        campoLucro.classList.add("erro");
+        campoLucro.classList.remove("ok");
+    }
+
+    ultimaNota=Math.round((acertos/total)*100);
+    document.getElementById("nota").innerHTML="Nota: "+ultimaNota+" / 100";
+}
+
+async function gerarPDF(){
+
+    let nome = document.getElementById("nomeAluno").value.trim();
+
+    if(nome===""){
+        alert("Preencha o nome do aluno antes de gerar o PDF.");
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc=new jsPDF();
+
+    doc.text("Relatório - Programação Dinâmica",10,10);
+    doc.text("Aluno: "+nome,10,18);
+    doc.text("Nota: "+ultimaNota+" / 100",10,26);
+
+    let y=40;
+    doc.text("Valores preenchidos pelo aluno:",10,y);
+    y+=10;
+
+    let inputs=document.querySelectorAll("input[type='number']");
+
+    inputs.forEach(inp=>{
+        if(inp.id){
+            doc.text(inp.id+" = "+inp.value,10,y);
+            y+=7;
+            if(y>280){
+                doc.addPage();
+                y=20;
+            }
+        }
+    });
+
+    doc.save("relatorio_dp_"+nome+".pdf");
+}
+
+</script>
+
+</body>
+</html>
