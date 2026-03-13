@@ -262,16 +262,28 @@ function corrigir(){
                     let pesoX = pesos[i]*k;
 
                     if(w < pesoX){
+
                         if(k==0){
                             esperado=0;
                         }else{
                             let campoAcima=document.getElementById("e_"+i+"_"+(k-1)+"_"+w);
                             esperado=parseInt(campoAcima.value) || 0;
                         }
+
                     }else{
-                        esperado =
+
+                        let calculado =
                             valores[i]*k +
                             F[i-1][w - pesoX];
+
+                        if(k==0){
+                            esperado = calculado;
+                        }else{
+                            let campoAcima=document.getElementById("e_"+i+"_"+(k-1)+"_"+w);
+                            let valorAcima=parseInt(campoAcima.value) || 0;
+
+                            esperado = Math.max(calculado, valorAcima);
+                        }
                     }
                 }
 
